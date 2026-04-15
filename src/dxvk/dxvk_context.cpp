@@ -2539,18 +2539,23 @@ namespace dxvk {
   void DxvkContext::adjustAttachmentLoadStoreOps(
           VkRenderingAttachmentInfo&  attachment,
           DxvkAccess                  access) const {
+    // Check if LOAD_OP_NONE is supported (requires VK_KHR_load_store_op_none)
+    bool hasLoadStoreOpNone = m_device->features().khrLoadStoreOpNone;
+
     if (access == DxvkAccess::None) {
       // If the attachment is not accessed at all, we can set both the
       // load and store op to NONE if supported by the implementation.
-      attachment.loadOp = VK_ATTACHMENT_LOAD_OP_NONE;
-      attachment.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
+      if (hasLoadStoreOpNone) {
+        attachment.loadOp = VK_ATTACHMENT_LOAD_OP_NONE;
+        attachment.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
+      }
     } else if (access == DxvkAccess::Read) {
       // Unlike clears, we don't treat DONT_CARE as a write. If the
       // attachment isn't written in this pass but is read anyway,
       // demote the store op to DONT_CARE as well.
       if (attachment.loadOp == VK_ATTACHMENT_LOAD_OP_DONT_CARE)
         attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-      else
+      else if (hasLoadStoreOpNone)
         attachment.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
     }
   }

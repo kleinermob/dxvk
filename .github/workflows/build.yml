@@ -1,0 +1,50 @@
+name: Build DXVK
+
+on:
+  push:
+    branches: [ main, master, '**' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    
+    steps:
+    - name: Install dependencies
+      run: |
+        pacman -Syu --noconfirm
+        pacman -S --noconfirm git meson ninja mingw-w64-gcc mingw-w64-binutils mingw-w64-headers mingw-w64-crt glslang
+    
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Build x64
+      run: |
+        meson setup build-x64 --cross-file build-win64.txt --buildtype=release
+        ninja -C build-x64
+    
+    - name: Build x86
+      run: |
+        meson setup build-x86 --cross-file build-win32.txt --buildtype=release
+        ninja -C build-x86
+    
+    - name: Package
+      run: |
+        mkdir -p dxvk-backport
+        cp build-x64/src/d3d9/d3d9.dll dxvk-backport/d3d9.dll
+        cp build-x64/src/d3d11/d3d11.dll dxvk-backport/d3d11.dll
+        cp build-x64/src/dxgi/dxgi.dll dxvk-backport/dxgi.dll
+        cp build-x86/src/d3d9/d3d9.dll dxvk-backport/d3d9_32.dll
+        cp build-x86/src/d3d11/d3d11.dll dxvk-backport/d3d11_32.dll
+        cp build-x86/src/dxgi/dxgi.dll dxvk-backport/dxgi_32.dll
+        zip -r dxvk-backport.zip dxvk-backport
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dxvk-backport
+        path: dxvk-backport.zip

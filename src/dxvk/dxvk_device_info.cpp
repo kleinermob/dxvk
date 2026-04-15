@@ -976,19 +976,21 @@ namespace dxvk {
       ENABLE_EXT(khrExternalSemaphoreWin32, false),
 
       /* LOAD_OP_NONE for certain tiler optimizations. Core feature
-       * in Vulkan 1.4, so probably supported by everything we need. */
-      ENABLE_EXT(khrLoadStoreOpNone, true),
+       * in Vulkan 1.4, but not available on older drivers. */
+      ENABLE_EXT(khrLoadStoreOpNone, false),
 
-      /* Maintenance features, relied on in various parts of the code */
-      ENABLE_EXT_FEATURE(khrMaintenance5, maintenance5, true),
-      ENABLE_EXT_FEATURE(khrMaintenance6, maintenance6, true),
+      /* Maintenance features, relied on in various parts of the code.
+       maintenance5+ require Vulkan 1.3.268+, make optional for older drivers. */
+      ENABLE_EXT_FEATURE(khrMaintenance5, maintenance5, false),
+      ENABLE_EXT_FEATURE(khrMaintenance6, maintenance6, false),
       ENABLE_EXT_FEATURE(khrMaintenance7, maintenance7, false),
       ENABLE_EXT_FEATURE(khrMaintenance8, maintenance8, false),
       ENABLE_EXT_FEATURE(khrMaintenance9, maintenance9, false),
       ENABLE_EXT_FEATURE(khrMaintenance10, maintenance10, false),
 
-      /* Dependency for graphics pipeline library */
-      ENABLE_EXT(khrPipelineLibrary, true),
+      /* Dependency for graphics pipeline library. Not available on older drivers,
+       but graphics pipeline library already has fallback paths. */
+      ENABLE_EXT(khrPipelineLibrary, false),
 
       /* Present wait, used for frame pacing and statistics */
       ENABLE_EXT_FEATURE(khrPresentId, presentId, false),
