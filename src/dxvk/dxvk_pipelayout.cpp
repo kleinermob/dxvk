@@ -490,15 +490,18 @@ namespace dxvk {
     if (type == DxvkPipelineLayoutType::Independent) {
       // For independent layouts, we don't know in advance how the other stages
       // are going to use their push constants, so allocate the maximum amount.
+      // Cap total allocation to the device's actual push constant limit.
       VkShaderStageFlags stageMask = VK_SHADER_STAGE_ALL_GRAPHICS & util::shaderStages(device->getShaderPipelineStages());
+      uint32_t pushConstantBudget = device->properties().core.properties.limits.maxPushConstantsSize;
 
       uint32_t index = DxvkPushDataBlock::computeIndex(stageMask);
 
       pushDataSize = align(pushDataSize, sizeof(uint64_t));
 
+      uint32_t sharedSize = std::min<uint32_t>(MaxSharedPushDataSize, pushConstantBudget - pushDataSize);
       pushDataBlocks[index] = DxvkPushDataBlock(stageMask,
-        pushDataSize, MaxSharedPushDataSize, 8u, 0u);
-      pushDataSize += MaxSharedPushDataSize;
+        pushDataSize, sharedSize, 8u, 0u);
+      pushDataSize += sharedSize;
 
       pushDataMask |= 1u << index;
 
@@ -506,10 +509,14 @@ namespace dxvk {
         auto stage = VkShaderStageFlagBits(1u << i);
         index = DxvkPushDataBlock::computeIndex(stage);
 
-        pushDataBlocks[index] = DxvkPushDataBlock(stage,
-          pushDataSize, MaxPerStagePushDataSize, 8u, 0u);
+        uint32_t stageSize = pushDataSize < pushConstantBudget
+          ? std::min<uint32_t>(MaxPerStagePushDataSize, pushConstantBudget - pushDataSize)
+          : 0u;
 
-        pushDataSize += MaxPerStagePushDataSize;
+        pushDataBlocks[index] = DxvkPushDataBlock(stage,
+          pushDataSize, stageSize, 8u, 0u);
+
+        pushDataSize += stageSize;
         pushDataMask |= 1u << index;
       }
 

@@ -115,8 +115,10 @@ namespace dxvk {
     // Without graphicsPipelineLibraryIndependentInterpolationDecoration, we
     // cannot use this effectively in many games since no client API provides
     // interpoation qualifiers in vertex shaders.
+    // Independent layout requires MaxTotalPushDataSize push constant budget.
     return m_features.extGraphicsPipelineLibrary.graphicsPipelineLibrary
         && m_properties.extGraphicsPipelineLibrary.graphicsPipelineLibraryIndependentInterpolationDecoration
+        && m_properties.core.properties.limits.maxPushConstantsSize >= MaxTotalPushDataSize
         && m_options.enableGraphicsPipelineLibrary != Tristate::False;
   }
 
