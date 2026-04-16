@@ -2,6 +2,7 @@
 
 #include "dxvk_format.h"
 #include "dxvk_limits.h"
+#include "dxvk_util.h"
 
 #include <atomic>
 #include <cstring>

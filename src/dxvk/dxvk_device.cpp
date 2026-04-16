@@ -117,6 +117,7 @@ namespace dxvk {
     // interpoation qualifiers in vertex shaders.
     // Independent layout requires MaxTotalPushDataSize push constant budget.
     return m_features.extGraphicsPipelineLibrary.graphicsPipelineLibrary
+        && m_features.khrMaintenance5.maintenance5
         && m_properties.extGraphicsPipelineLibrary.graphicsPipelineLibraryIndependentInterpolationDecoration
         && m_properties.core.properties.limits.maxPushConstantsSize >= MaxTotalPushDataSize
         && m_options.enableGraphicsPipelineLibrary != Tristate::False;

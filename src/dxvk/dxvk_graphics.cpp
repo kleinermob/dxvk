@@ -1206,6 +1206,10 @@ namespace dxvk {
       this->logPipelineState(LogLevel::Error, state);
 
     m_stats->numGraphicsPipelines += 1;
+
+    if (m_manager->getStateCache())
+      m_manager->getStateCache()->addGraphicsPipeline(m_shaders, state);
+
     return m_pipelines.add(state, baseHandle, fastHandle, computeAttachmentMask(state));
   }
   

@@ -20,6 +20,9 @@ namespace dxvk {
     /// when using the state cache
     int32_t numCompilerThreads = 0;
 
+    /// Enable state cache for pipeline pre-compilation
+    bool enableStateCache = true;
+
     /// Enable graphics pipeline library
     Tristate enableGraphicsPipelineLibrary = Tristate::Auto;
 

@@ -7,6 +7,7 @@
 
 #include "dxvk_compute.h"
 #include "dxvk_graphics.h"
+#include "dxvk_state_cache.h"
 
 namespace dxvk {
 
@@ -280,12 +281,19 @@ namespace dxvk {
      * \brief Stops async compiler threads
      */
     void stopWorkerThreads();
+
+    /**
+     * \brief Queries state cache
+     * \returns State cache object
+     */
+    DxvkStateCache* getStateCache() { return &m_stateCache; }
     
   private:
     
     DxvkDevice*               m_device;
     DxvkPipelineWorkers       m_workers;
     DxvkPipelineStats         m_stats;
+    DxvkStateCache            m_stateCache;
     
     dxvk::mutex m_layoutMutex;
     

@@ -171,7 +171,8 @@ namespace dxvk {
   DxvkPipelineManager::DxvkPipelineManager(
           DxvkDevice*         device)
   : m_device    (device),
-    m_workers   (device) {
+    m_workers   (device),
+    m_stateCache(device, this) {
     Logger::info(str::format("Graphics pipeline libraries ",
       (m_device->canUseGraphicsPipelineLibrary() ? "supported" : "not supported")));
 
@@ -297,6 +298,8 @@ namespace dxvk {
 
     auto library = createShaderPipelineLibrary(key);
     m_workers.compilePipelineLibrary(library, DxvkPipelinePriority::Normal);
+
+    m_stateCache.registerShader(shader);
   }
 
 
