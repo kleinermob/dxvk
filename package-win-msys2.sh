@@ -134,6 +134,11 @@ build_arch() {
   mkdir -p "$DXVK_TMPDIR"
   generate_crossfile "$bits" "$crossfile"
 
+  # Wipe build dir if exists to ensure clean build
+  if [ -d "$builddir" ]; then
+    rm -rf "$builddir"
+  fi
+
   meson setup --cross-file "$crossfile"        \
         --buildtype "$MESON_TYPE"              \
         $STRIP_FLAG                            \

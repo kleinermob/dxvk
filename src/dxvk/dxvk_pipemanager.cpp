@@ -217,8 +217,11 @@ namespace dxvk {
     std::lock_guard<dxvk::mutex> lock(m_pipelineMutex);
 
     auto pair = m_graphicsPipelines.find(shaders);
-    if (pair != m_graphicsPipelines.end())
+    if (pair != m_graphicsPipelines.end()) {
+      // Compile cached states for existing pipeline
+      m_stateCache.compileCachedStates(&pair->second, shaders);
       return &pair->second;
+    }
 
     DxvkShaderPipelineLibraryKey vsKey;
     vsKey.addShader(shaders.vs);
@@ -248,7 +251,12 @@ namespace dxvk {
       std::piecewise_construct,
       std::tuple(shaders),
       std::tuple(m_device, this, shaders, vsLibrary, fsLibrary));
-    return &iter.first->second;
+
+    // Compile cached pipeline states for this shader combo
+    DxvkGraphicsPipeline* pipeline = &iter.first->second;
+    m_stateCache.compileCachedStates(pipeline, shaders);
+
+    return pipeline;
   }
 
   

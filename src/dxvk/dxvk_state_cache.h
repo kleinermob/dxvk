@@ -48,6 +48,14 @@ namespace dxvk {
       const DxvkGraphicsPipelineStateInfo& state);
 
     /**
+     * \brief Compiles cached pipeline states for a graphics pipeline
+     * \param [in] pipeline Graphics pipeline
+     * \param [in] shaders Pipeline shaders
+     */
+    void compileCachedStates(DxvkGraphicsPipeline* pipeline,
+      const DxvkGraphicsPipelineShaders& shaders);
+
+    /**
      * \brief Gets default cache file path
      * \returns Path to cache file
      */
@@ -81,6 +89,7 @@ namespace dxvk {
     void loadCacheFromDisk();
     void saveEntryToDisk(const CacheEntry& entry);
     void runWriter();
+    void compilePipelinesForShader(uint32_t shaderCookie);
 
     bool isCacheEnabled() const;
 

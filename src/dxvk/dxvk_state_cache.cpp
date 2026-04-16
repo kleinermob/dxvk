@@ -43,7 +43,7 @@ namespace dxvk {
   void DxvkStateCache::addGraphicsPipeline(
     const DxvkGraphicsPipelineShaders& shaders,
     const DxvkGraphicsPipelineStateInfo& state) {
-    if (!isCacheEnabled())
+    if (!isCacheEnabled() || !m_initialized)
       return;
 
     CacheEntry entry;
@@ -62,6 +62,43 @@ namespace dxvk {
     { std::unique_lock lock(m_writeMutex);
       m_writeQueue.push(entry);
       m_writeCond.notify_one();
+    }
+  }
+
+  void DxvkStateCache::compileCachedStates(
+    DxvkGraphicsPipeline*                 pipeline,
+    const DxvkGraphicsPipelineShaders&     shaders) {
+    if (!isCacheEnabled() || !m_initialized || !pipeline)
+      return;
+
+    // Build lookup key from shaders (without state hash)
+    DxvkStateCacheKey lookupKey;
+    lookupKey.vsCookie = DxvkShader::getCookie(shaders.vs);
+    lookupKey.tcsCookie = DxvkShader::getCookie(shaders.tcs);
+    lookupKey.tesCookie = DxvkShader::getCookie(shaders.tes);
+    lookupKey.gsCookie = DxvkShader::getCookie(shaders.gs);
+    lookupKey.fsCookie = DxvkShader::getCookie(shaders.fs);
+
+    std::unique_lock lock(m_mutex);
+
+    // Find all entries matching this shader combo
+    for (const auto& entry : m_entries) {
+      const DxvkStateCacheKey& key = entry.first;
+
+      // Check if shader cookies match (stateHash will differ)
+      if (key.vsCookie == lookupKey.vsCookie &&
+          key.tcsCookie == lookupKey.tcsCookie &&
+          key.tesCookie == lookupKey.tesCookie &&
+          key.gsCookie == lookupKey.gsCookie &&
+          key.fsCookie == lookupKey.fsCookie) {
+
+        // Found matching shaders - compile all cached states
+        for (const auto& state : entry.second) {
+          lock.unlock();
+          pipeline->compilePipeline(state);
+          lock.lock();
+        }
+      }
     }
   }
 
