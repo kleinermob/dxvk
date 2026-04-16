@@ -3,61 +3,50 @@
 # Build DXVK for Windows using MSYS2 MinGW toolchains.
 # Run from an MSYS2 MINGW64 shell:
 #
-#   ./package-win-msys2.sh 2.7.1 /c/dxvk-out
-#   ./package-win-msys2.sh 2.7.1 /c/dxvk-out --64-only
-#   ./package-win-msys2.sh 2.7.1 /c/dxvk-out --dev-build
+#   ./package-win-msys2.sh                  # release x64+x32
+#   ./package-win-msys2.sh --debug          # debug x64+x32
+#   ./package-win-msys2.sh --64-only        # release x64 only
+#   ./package-win-msys2.sh --debug --64-only
+#
+# Output:
+#   build/release/x64/*.dll  build/release/x32/*.dll
+#   build/debug/x64/*.dll    build/debug/x32/*.dll
 #
 
 set -e
-shopt -s extglob
 
-if [ -z "$1" ] || [ -z "$2" ]; then
-  echo "Usage: $0 version destdir [--no-package] [--dev-build] [--64-only] [--32-only]"
-  exit 1
-fi
-
-DXVK_VERSION="$1"
 DXVK_SRC_DIR=$(dirname "$(readlink -f "$0")")
-DXVK_BUILD_DIR=$(realpath "$2")"/dxvk-$DXVK_VERSION"
-DXVK_ARCHIVE_PATH=$(realpath "$2")"/dxvk-$DXVK_VERSION.tar.gz"
+DXVK_TMPDIR="$DXVK_SRC_DIR/.buildtmp"
 
-if [ -e "$DXVK_BUILD_DIR" ]; then
-  echo "Build directory $DXVK_BUILD_DIR already exists"
-  exit 1
-fi
-
-shift 2
-
-opt_nopackage=0
-opt_devbuild=0
+opt_debug=0
 opt_buildid=false
 opt_64_only=0
 opt_32_only=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
-  "--no-package")
-    opt_nopackage=1
-    ;;
-  "--dev-build")
-    opt_nopackage=1
-    opt_devbuild=1
-    ;;
-  "--build-id")
-    opt_buildid=true
-    ;;
-  "--64-only")
-    opt_64_only=1
-    ;;
-  "--32-only")
-    opt_32_only=1
-    ;;
+  "--debug")    opt_debug=1 ;;
+  "--build-id") opt_buildid=true ;;
+  "--64-only")  opt_64_only=1 ;;
+  "--32-only")  opt_32_only=1 ;;
   *)
-    echo "Unrecognized option: $1" >&2
+    echo "Usage: $0 [--debug] [--64-only] [--32-only] [--build-id]" >&2
     exit 1
   esac
   shift
 done
+
+if [ $opt_debug -eq 1 ]; then
+  BUILD_TYPE="debug"
+  MESON_TYPE="debug"
+  STRIP_FLAG=""
+else
+  BUILD_TYPE="release"
+  MESON_TYPE="release"
+  STRIP_FLAG="--strip"
+fi
+
+DXVK_OUT_DIR="$DXVK_SRC_DIR/build/$BUILD_TYPE"
 
 # --- Dependency check ---
 check_deps() {
@@ -110,7 +99,6 @@ generate_crossfile() {
     local mingw_bindir="/mingw32/bin"
   fi
 
-  # Resolve to Windows-style path so ninja can find the tools
   local win_bindir
   win_bindir=$(cygpath -w "$mingw_bindir")
 
@@ -136,63 +124,49 @@ EOF
 # --- Build one arch ---
 build_arch() {
   local bits="$1"
+  local outdir="$DXVK_OUT_DIR/x${bits}"
+  local builddir="$DXVK_TMPDIR/${BUILD_TYPE}-${bits}"
 
   cd "$DXVK_SRC_DIR"
-
-  # Add both mingw bin dirs to PATH
   export PATH="/mingw64/bin:/mingw32/bin:$PATH"
 
-  local crossfile="$DXVK_BUILD_DIR/.crossfile-win${bits}.txt"
-  mkdir -p "$DXVK_BUILD_DIR"
+  local crossfile="$DXVK_TMPDIR/crossfile-${bits}.txt"
+  mkdir -p "$DXVK_TMPDIR"
   generate_crossfile "$bits" "$crossfile"
 
-  opt_strip=
-  if [ $opt_devbuild -eq 0 ]; then
-    opt_strip=--strip
-  fi
-
   meson setup --cross-file "$crossfile"        \
-        --buildtype "release"                  \
-        --prefix "$DXVK_BUILD_DIR"             \
-        $opt_strip                             \
-        --bindir "x${bits}"                    \
-        --libdir "x${bits}"                    \
+        --buildtype "$MESON_TYPE"              \
+        $STRIP_FLAG                            \
         -Db_ndebug=if-release                  \
         -Dbuild_id=$opt_buildid                \
-        "$DXVK_BUILD_DIR/build.${bits}"
+        "$builddir"
 
-  cd "$DXVK_BUILD_DIR/build.${bits}"
-  ninja install
+  cd "$builddir"
+  ninja
 
-  if [ $opt_devbuild -eq 0 ]; then
-    # Remove non-dll files and build dir
-    rm -f "$DXVK_BUILD_DIR/x${bits}/"*.!(dll)
-    rm -rf "$DXVK_BUILD_DIR/build.${bits}"
-  fi
+  mkdir -p "$outdir"
+  find . -name '*.dll' ! -name '*.dll.a' -exec cp {} "$outdir/" \;
 }
 
-package() {
-  cd "$DXVK_BUILD_DIR/.."
-  tar -czf "$DXVK_ARCHIVE_PATH" "dxvk-$DXVK_VERSION"
-  rm -rf "dxvk-$DXVK_VERSION"
+# --- Cleanup temp ---
+cleanup() {
+  rm -rf "$DXVK_TMPDIR"
 }
 
 # --- Main ---
-echo "=== DXVK $DXVK_VERSION Windows build (MSYS2) ==="
+echo "=== DXVK $BUILD_TYPE build (MSYS2) ==="
 check_deps
 
 if [ $opt_32_only -eq 0 ]; then
-  echo "--- Building x64 ---"
+  echo "--- Building x64 ($BUILD_TYPE) ---"
   build_arch 64
 fi
 if [ $opt_64_only -eq 0 ]; then
-  echo "--- Building x32 ---"
+  echo "--- Building x32 ($BUILD_TYPE) ---"
   build_arch 32
 fi
 
-if [ $opt_nopackage -eq 0 ]; then
-  package
-  echo "=== Package: $DXVK_ARCHIVE_PATH ==="
-else
-  echo "=== Output: $DXVK_BUILD_DIR ==="
-fi
+cleanup
+
+echo "=== Done: $DXVK_OUT_DIR/ ==="
+ls -la "$DXVK_OUT_DIR"/x*/

@@ -68,6 +68,10 @@ namespace dxvk {
      && m_device->properties().extMultiDraw.maxMultiDrawCount >= DirectMultiDrawBatchSize)
       m_features.set(DxvkContextFeature::DirectMultiDraw);
 
+    // Check whether we can use vkCmdBindIndexBuffer2 (maintenance6)
+    if (m_device->features().khrMaintenance6.maintenance6)
+      m_features.set(DxvkContextFeature::BindIndexBuffer2);
+
     // Add a fast path to query debug utils support
     if (m_device->debugFlags().test(DxvkDebugFlag::Capture))
       m_features.set(DxvkContextFeature::DebugUtils);
@@ -7049,12 +7053,18 @@ namespace dxvk {
     if (likely(m_state.vi.indexBuffer.length())) {
       auto bufferInfo = m_state.vi.indexBuffer.getSliceInfo();
 
-      VkDeviceSize align = m_state.vi.indexType == VK_INDEX_TYPE_UINT16 ? 2 : 4;
-      VkDeviceSize length = bufferInfo.size & ~(align - 1);
+      if (m_features.test(DxvkContextFeature::BindIndexBuffer2)) {
+        VkDeviceSize align = m_state.vi.indexType == VK_INDEX_TYPE_UINT16 ? 2 : 4;
+        VkDeviceSize length = bufferInfo.size & ~(align - 1);
 
-      m_cmd->cmdBindIndexBuffer2(
-        bufferInfo.buffer, bufferInfo.offset,
-        length, m_state.vi.indexType);
+        m_cmd->cmdBindIndexBuffer2(
+          bufferInfo.buffer, bufferInfo.offset,
+          length, m_state.vi.indexType);
+      } else {
+        // Fallback: use legacy vkCmdBindIndexBuffer (no size parameter)
+        m_cmd->cmdBindIndexBuffer(
+          bufferInfo.buffer, bufferInfo.offset, m_state.vi.indexType);
+      }
 
       if (m_flags.test(DxvkContextFlag::GpRenderPassUnsynchronized)
        || m_state.vi.indexBuffer.buffer()->hasGfxStores()) {
@@ -7066,10 +7076,11 @@ namespace dxvk {
       m_renderPassBarrierSrc.access |= VK_ACCESS_INDEX_READ_BIT;
 
       m_cmd->track(m_state.vi.indexBuffer.buffer(), DxvkAccess::Read);
-    } else {
-      // Bind null index buffer to read all zeroes, not too useful but well-defined
+    } else if (m_features.test(DxvkContextFeature::BindIndexBuffer2)) {
+      // Bind null index buffer to read all zeroes (maintenance6 only)
       m_cmd->cmdBindIndexBuffer2(VK_NULL_HANDLE, 0, VK_WHOLE_SIZE, m_state.vi.indexType);
     }
+    // Without maintenance6, null index buffer is not supported - skip binding
   }
   
   

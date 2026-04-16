@@ -100,6 +100,7 @@ namespace dxvk {
     DirectMultiDraw,
     DescriptorBuffer,
     DescriptorHeap,
+    BindIndexBuffer2,
     FeatureCount
   };
 

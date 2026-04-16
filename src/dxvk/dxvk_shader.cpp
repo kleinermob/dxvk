@@ -90,13 +90,31 @@ namespace dxvk {
     auto& codeBuffer = m_codeBuffers[m_stageCount];
     codeBuffer = std::move(code);
 
-    auto& moduleInfo = m_moduleInfos[m_stageCount].moduleInfo;
-    moduleInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO, m_next };
-    moduleInfo.codeSize = codeBuffer.size();
-    moduleInfo.pCode = codeBuffer.data();
-
     auto& stageInfo = m_stageInfos[m_stageCount];
-    stageInfo = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, &moduleInfo };
+
+    if (m_device->features().khrMaintenance5.maintenance5) {
+      // maintenance5: pass VkShaderModuleCreateInfo inline via pNext
+      auto& moduleInfo = m_moduleInfos[m_stageCount].moduleInfo;
+      moduleInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO, m_next };
+      moduleInfo.codeSize = codeBuffer.size();
+      moduleInfo.pCode = codeBuffer.data();
+
+      stageInfo = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, &moduleInfo };
+    } else {
+      // Fallback: create VkShaderModule object
+      auto vk = m_device->vkd();
+
+      VkShaderModuleCreateInfo moduleInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
+      moduleInfo.codeSize = codeBuffer.size();
+      moduleInfo.pCode = codeBuffer.data();
+
+      if (vk->vkCreateShaderModule(vk->device(), &moduleInfo, nullptr, &m_shaderModules[m_stageCount]) != VK_SUCCESS)
+        Logger::err("DxvkShaderStageInfo: Failed to create shader module");
+
+      stageInfo = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, m_next };
+      stageInfo.module = m_shaderModules[m_stageCount];
+    }
+
     stageInfo.stage = stage;
     stageInfo.pName = "main";
     stageInfo.pSpecializationInfo = specInfo;
@@ -131,7 +149,12 @@ namespace dxvk {
 
 
   DxvkShaderStageInfo::~DxvkShaderStageInfo() {
+    auto vk = m_device->vkd();
 
+    for (uint32_t i = 0; i < m_stageCount; i++) {
+      if (m_shaderModules[i])
+        vk->vkDestroyShaderModule(vk->device(), m_shaderModules[i], nullptr);
+    }
   }
 
 

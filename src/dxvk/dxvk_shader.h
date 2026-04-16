@@ -389,8 +389,9 @@ namespace dxvk {
    * \brief Shader code collection
    * 
    * Manages shader stage and shader module create structures that can
-   * be passed to pipeline creation. Vulkan shader modules are not used,
-   * instead we rely on maintenance5 functionality.
+   * be passed to pipeline creation. When maintenance5 is available,
+   * inline shader modules are used. Otherwise, VkShaderModule objects
+   * are created and destroyed with this object.
    */
   class DxvkShaderStageInfo {
     
@@ -463,6 +464,7 @@ namespace dxvk {
     std::array<SpirvCodeBuffer,                 5>  m_codeBuffers;
     std::array<ShaderModuleInfo,                5>  m_moduleInfos = { };
     std::array<VkPipelineShaderStageCreateInfo, 5>  m_stageInfos  = { };
+    std::array<VkShaderModule,                  5>  m_shaderModules = { };
     uint32_t                                        m_stageCount  = 0;
 
   };
